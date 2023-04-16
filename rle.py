@@ -20,10 +20,3 @@ def rle2_decompress(text):
         decompressed += char * count
         i += 2
     return decompressed
-
-
-text = "aaaaavvvvvvkkkkkkk"
-d_text = "5a6v7k"
-
-print(rle2_compress(text))
-print(rle2_decompress(d_text))
