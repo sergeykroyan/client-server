@@ -1,37 +1,49 @@
 import socket
 import threading
 
-# Choosing Nickname
-nickname = input("Choose your nickname: ")
+import custom_rsa as rsa
+from affine_cipher import affine_encrypt, affine_decrypt
+from rle import rle2_compress, rle2_decompress
+
+FORMAT = "utf-8"
+
+p, q = 19, 11
+public_key, private_key = rsa.generate_key_pair(p, q)
 
 # Connecting To Server
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(("127.0.0.1", 55555))
 
+SERVER_PUBLIC_KEY = eval(client.recv(2048).decode(FORMAT))
+SERVER_PRIVATE_KEY = eval(client.recv(2048).decode(FORMAT))
 
-# Listening to Server and Sending Nickname
+# Choosing Nickname
+nickname = input("Choose your nickname: ")
+client.send(f"{public_key}".encode(FORMAT))
+client.send(nickname.encode(FORMAT))
+
+
 def receive():
     while True:
-        try:
-            # Receive Message From Server
-            # If 'NICK' Send Nickname
-            message = client.recv(1024).decode("ascii")
-            if message == "NICK":
-                client.send(nickname.encode("ascii"))
-            else:
-                print(message)
-        except:
-            # Close Connection When Error
-            print("An error occured!")
-            client.close()
-            break
+        message = client.recv(2048).decode(FORMAT)
+        if message:
+            decrypted_message = rsa.decrypt(message, private_key)
+            rle_message_decrypt = rle2_decompress(decrypted_message)
+            affine_message_decrypt = affine_decrypt(rle_message_decrypt, 5, 8)
+            print(f"{client.recv(2048).decode(FORMAT)}: {affine_message_decrypt}")
 
 
 # Sending Messages To Server
 def write():
     while True:
-        message = "{}: {}".format(nickname, input("> "))
-        client.send(message.encode("ascii"))
+        message = input("> ")
+        if not message:
+            break
+        affine_message_encrypt = affine_encrypt(message, 5, 8)
+        rle_message_encrypt = rle2_compress(affine_message_encrypt)
+        encrypted_message = rsa.encrypt(rle_message_encrypt, SERVER_PUBLIC_KEY)
+        client.send(encrypted_message.encode(FORMAT))
+        print(f"You: {message}")
 
 
 # Starting Threads For Listening And Writing
