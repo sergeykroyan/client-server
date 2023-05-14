@@ -17,19 +17,19 @@ print("Server is running")
 p, q = 13, 5
 public_key, private_key = rsa.generate_key_pair(p, q)
 
-
 # Lists For Clients and Their Nicknames
-
 credentials = {}
-nicknames = []
+nicknames = {}
 clients = []
 
 
 # Sending Messages To All Connected Clients
-def broadcast(message):
-    for client, client_public_key in credentials:
-        encrypted_message = rsa.encrypt(message, client_public_key)
-        client.send(encrypted_message.encode(FORMAT))
+def broadcast(message, sender):
+    for client, client_public_key in credentials.items():
+        if client != sender:
+            encrypted_message = rsa.encrypt(message, client_public_key)
+            client.send(encrypted_message.encode(FORMAT))
+            client.send(nicknames[sender].encode(FORMAT))
 
 
 # Handling Messages From Clients
@@ -37,16 +37,15 @@ def handle(client):
     while True:
         try:
             # Broadcasting Messages
-            message = client.recv(1024)
-            broadcast(message)
+            m = client.recv(2048).decode(FORMAT)
+            message = rsa.decrypt(m, private_key)
+            broadcast(message, client)
         except:
             # Removing And Closing Clients
-            index = clients.index(client)
             clients.remove(client)
             client.close()
-            nickname = nicknames[index]
-            broadcast("{} left!".format(nickname).encode(FORMAT))
-            nicknames.remove(nickname)
+            del nicknames[client]
+            del credentials[client]
             break
 
 
@@ -57,20 +56,16 @@ def receive():
         client, address = server.accept()
         clients.append(client)
         print("Connected with {}".format(str(address)))
-        client.send(public_key)
 
-        # Request And Store Nickname and Client public key
-        client.send("OK".encode(FORMAT))
-        client_message = rsa.decrypt(client.recv(1024), private_key)
+        client.send(f"{public_key}".encode(FORMAT))
+        client.send(f"{private_key}".encode(FORMAT))
+        client_public_key = eval(client.recv(2048).decode(FORMAT))
 
-        nickname, client_public_key = client_message.split(":")
-        credentials[nickname] = client_public_key
-        nicknames.append(nickname)
-
-        # Print And Broadcast Nickname
+        nickname = client.recv(2048).decode(FORMAT)
         print("Nickname is {}".format(nickname))
 
-        broadcast(f"{nickname} joined!")
+        nicknames[client] = nickname
+        credentials[client] = client_public_key
 
         # Start Handling Thread For Client
         thread = threading.Thread(target=handle, args=(client,))
