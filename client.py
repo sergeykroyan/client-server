@@ -10,16 +10,14 @@ FORMAT = "utf-8"
 p, q = 19, 11
 public_key, private_key = rsa.generate_key_pair(p, q)
 
-# Connecting To Server
+
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect(("127.0.0.1", 55555))
 
 SERVER_PUBLIC_KEY = eval(client.recv(2048).decode(FORMAT))
-SERVER_PRIVATE_KEY = eval(client.recv(2048).decode(FORMAT))
-
-# Choosing Nickname
-nickname = input("Choose your nickname: ")
 client.send(f"{public_key}".encode(FORMAT))
+
+nickname = input("Choose your nickname: ")
 client.send(nickname.encode(FORMAT))
 
 
@@ -33,7 +31,6 @@ def receive():
             print(f"{client.recv(2048).decode(FORMAT)}: {affine_message_decrypt}")
 
 
-# Sending Messages To Server
 def write():
     while True:
         message = input("> ")
@@ -46,7 +43,6 @@ def write():
         print(f"You: {message}")
 
 
-# Starting Threads For Listening And Writing
 receive_thread = threading.Thread(target=receive)
 receive_thread.start()
 
